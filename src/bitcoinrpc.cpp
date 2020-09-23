@@ -279,12 +279,17 @@ static const CRPCCommand vRPCCommands[] =
         {"network",           "getnettotals",           &getnettotals,           true,   false},
         {"network",           "getpeerinfo",            &getpeerinfo,            true,   false},
         {"network",           "sendalert",              &sendalert,              false,  false},
+        {"network",           "addnode",                &addnode,                true,  false},
+        {"network",           "getaddednodeinfo",              &getaddednodeinfo,       true,  false},
+        {"network",           "setban",                 &setban,                 true,  false},
+        {"network",           "listbanned",             &listbanned,             true,  false},
+        {"network",           "clearbanned",              &clearbanned,            true,  false},
 
         /* Block chain mining and UTXO */
         {"blockchain",        "getbestblockhash",       &getbestblockhash,       true,   false},
         {"blockchain",        "getblockcount",          &getblockcount,          true,   false},
         {"blockchain",        "getblock",               &getblock,               false,  false},
-        {"blockchain",        "getblockchaininfo",      &getblockchaininfo,       true,  false},
+        {"blockchain",        "getblock_old",           &getblock_old            false,  false},
         {"blockchain",        "getblockhash",           &getblockhash,           false,  false},
         {"blockchain",        "getblockbynumber",       &getblockbynumber,       false,  false},
         {"blockchain",        "getcheckpoint",          &getcheckpoint,          true,   false},
@@ -355,6 +360,11 @@ static const CRPCCommand vRPCCommands[] =
         {"rawtransactions",   "listunspent",            &listunspent,            false,  false},
         {"rawtransactions",   "sendrawtransaction",     &sendrawtransaction,     false,  false},
         {"rawtransactions",   "signrawtransaction",     &signrawtransaction,     false,  false},
+
+        // Atomic Swap Commands
+        {"atomic",   "getnetworkinfo",         &getnetworkinfo,         true,   false},
+        {"atomic",   "getblockchaininfo",               &getblockchaininfo,               true,   false},
+        {"atomic",   "gettxout",               &gettxout,               true,   false},
 
         /* Stealth Addresses */
         {"stealth",           "getnewstealthaddress",   &getnewstealthaddress,   false,  false},

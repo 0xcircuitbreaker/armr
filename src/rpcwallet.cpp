@@ -87,14 +87,14 @@ Value getinfo(const Array& params, bool fHelp)
     bool include_unconfirmed_balance = false;
     if(params.size() == 1) {
         include_unconfirmed_balance = params[0].get_bool();
-    } 
+    }
 
     Object obj, diff;
     obj.push_back(Pair("version",         FormatFullVersion()));
     obj.push_back(Pair("protocolversion", (int)PROTOCOL_VERSION));
     obj.push_back(Pair("walletversion",   pwalletMain->GetVersion()));
     if (include_unconfirmed_balance) {
-        obj.push_back(Pair("balance", ValueFromAmount(pwalletMain->GetBalance() 
+        obj.push_back(Pair("balance", ValueFromAmount(pwalletMain->GetBalance()
                                                     + pwalletMain->GetUnconfirmedBalance())));
     }
     else {
@@ -102,6 +102,7 @@ Value getinfo(const Array& params, bool fHelp)
     }
     obj.push_back(Pair("newmint",         ValueFromAmount(pwalletMain->GetNewMint())));
     obj.push_back(Pair("stake",           ValueFromAmount(pwalletMain->GetStake())));
+    obj.push_back(Pair("unconfirmed",   ValueFromAmount(pwalletMain->GetUnconfirmedBalance())));
     obj.push_back(Pair("blocks",          (int)nBestHeight));
     obj.push_back(Pair("timeoffset",      (boost::int64_t)GetTimeOffset()));
     obj.push_back(Pair("moneysupply",     ValueFromAmount(pindexBest->nMoneySupply)));
@@ -314,7 +315,7 @@ Value sendtoaddress(const Array& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "sendtoaddress <ARMRaddress> <amount> [narration] [comment] [comment-to]\n"
-            "<amount> is a real and is rounded to the nearest 0.000001" 
+            "<amount> is a real and is rounded to the nearest 0.000001"
             + HelpRequiringPassphrase());
 
     CBitcoinAddress address(params[0].get_str());
@@ -686,7 +687,7 @@ Value sendfrom(const Array& params, bool fHelp)
     if (fHelp || params.size() < 3 || params.size() > 7)
         throw runtime_error(
             "sendfrom <fromaccount> <toARMRAddress> <amount> [minconf=1] [narration] [comment] [comment-to]\n"
-            "<amount> is a real and is rounded to the nearest 0.000001" 
+            "<amount> is a real and is rounded to the nearest 0.000001"
             + HelpRequiringPassphrase());
 
     string strAccount = AccountFromValue(params[0]);
@@ -736,7 +737,7 @@ Value sendmany(const Array& params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
             "sendmany <fromaccount> {address:amount,...} [minconf=1] [comment]\n"
-            "amounts are double-precision floating point numbers" 
+            "amounts are double-precision floating point numbers"
             + HelpRequiringPassphrase());
 
     string strAccount = AccountFromValue(params[0]);
@@ -1387,7 +1388,7 @@ Value keypoolrefill(const Array& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "keypoolrefill [new-size]\n"
-            "Fills the keypool." 
+            "Fills the keypool."
             + HelpRequiringPassphrase());
 
     unsigned int nSize = max(GetArg("-keypool", 100), (int64_t)0);
@@ -2016,18 +2017,18 @@ Value exportstealthaddress(const Array& params, bool fHelp)
             "Exports the given stealth address.");
 
     std::string stealth_address_label = params[0].get_str();
-    
+
     if (pwalletMain->IsLocked())
         throw runtime_error("Failed: Wallet must be unlocked.");
-    
+
     Object result;
-    
+
     std::set<CStealthAddress>::iterator it;
     for (it = pwalletMain->stealthAddresses.begin(); it != pwalletMain->stealthAddresses.end(); ++it)
     {
         if (it->scan_secret.size() < 1)
             continue; // stealth address is not owned
-        
+
         if (stealth_address_label == it->label || stealth_address_label == it->Encoded())
         {
             Object objA;
@@ -2035,7 +2036,7 @@ Value exportstealthaddress(const Array& params, bool fHelp)
             objA.push_back(Pair("spend_secret", HexStr(it->spend_secret.begin(), it->spend_secret.end())));
             objA.push_back(Pair("label", it->label));
             return objA;
-        } 
+        }
     };
 
     return result;
@@ -2046,7 +2047,7 @@ Value sendtostealthaddress(const Array &params, bool fHelp)
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "sendtostealthaddress <stealth_address> <amount> [narration] [comment] [comment-to]\n"
-            "<amount> is a real and is rounded to the nearest 0.000001" 
+            "<amount> is a real and is rounded to the nearest 0.000001"
             + HelpRequiringPassphrase());
 
     if (pwalletMain->IsLocked())
@@ -2205,4 +2206,172 @@ Value getnettotals(const Array &params, bool fHelp)
     obj.push_back(Pair("totalbytessent", CNode::GetTotalBytesSent()));
     obj.push_back(Pair("timemillis", GetTimeMillis()));
     return obj;
+}
+
+Value getnetworkinfo(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                "getnetworkinfo\n"
+                " Returns an object containing various state info regarding P2P networking.\n"
+                "\nResult:\n"
+                "{\n"
+                "  \"version\": xxxxx,            (numeric) the server version\n"
+                "  \"subver\": \"/s:n.n.n.n/\",     (string)  this clients subversion string\n"
+                "  \"protocolversion\": xxxxx,    (numeric) the protocol version\n"
+                "  \"localservices\": \"xxxx\",     (hex string) Our local service bits as a 16 char string.\n"
+                "  \"timeoffset\": xxxxx,         (numeric) the time offset\n"
+                "  \"connections\": xxxxx,        (numeric) the number of connections\n"
+                "  \"networkconnections\": [      (array)  the state of each possible network connection type\n"
+                "    \"name\": \"xxx\",             (string) network name\n"
+                "    \"limited\" : true|false,    (boolean) if service is limited\n"
+                "  ]\n"
+                "  \"localaddresses\": [          (array) list of local addresses\n"
+                "    \"address\": \"xxxx\",         (string) network address\n"
+                "    \"port\": xxx,               (numeric) network port\n"
+                "    \"score\": xxx               (numeric) relative score\n"
+                "  ]\n"
+                "}\n"
+        );
+
+    LOCK(cs_main);
+
+    Object obj;
+    obj.push_back(Pair("version",        (int)CLIENT_VERSION));
+    obj.push_back(Pair("subversion",     FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>())));
+    obj.push_back(Pair("protocolversion",(int)PROTOCOL_VERSION));
+  //obj.push_back(Pair("localservices",  strprintf("%016", PRIx64, nLocalServices)));
+    obj.push_back(Pair("timeoffset",     GetTimeOffset()));
+    obj.push_back(Pair("connections",    (int)vNodes.size()));
+  //obj.push_back(Pair("relayfee",       ValueFromAmount(minRelayTxFee.GetFeePerK())));
+    Array localAddresses;
+    {
+        LOCK(cs_mapLocalHost);
+        BOOST_FOREACH(const PAIRTYPE(CNetAddr, LocalServiceInfo) &item, mapLocalHost)
+        {
+            Object rec;
+            rec.push_back(Pair("address", item.first.ToString()));
+            rec.push_back(Pair("port", item.second.nPort));
+            rec.push_back(Pair("score", item.second.nScore));
+            localAddresses.push_back(rec);
+        }
+    }
+    obj.push_back(Pair("localaddresses", localAddresses));
+
+    return obj;
+}
+
+Value setban(const Array& params, bool fHelp)
+{
+    string strCommand;
+    if (params.size() >= 2)
+        strCommand = params[1].get_str();
+    if (fHelp || params.size() < 2 ||
+        (strCommand != "add" && strCommand != "remove"))
+        throw runtime_error(
+                            "setban \"ip(/netmask)\" \"add|remove\" (bantime) (absolute)\n"
+                            "\nAttempts add or remove a IP/Subnet from the banned list.\n"
+                            "\nArguments:\n"
+                            "1. \"ip(/netmask)\" (string, required) The IP/Subnet (see getpeerinfo for nodes ip) with a optional netmask (default is /32 = single ip)\n"
+                            "2. \"command\"      (string, required) 'add' to add a IP/Subnet to the list, 'remove' to remove a IP/Subnet from the list\n"
+                            "3. \"bantime\"      (numeric, optional) time in seconds how long (or until when if [absolute] is set) the ip is banned (0 or empty means using the default time of 24h which can also be overwritten by the -bantime startup argument)\n"
+                            "4. \"absolute\"     (boolean, optional) If set, the bantime must be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
+                            "\nExamples:\n"
+                            + HelpExampleCli("setban", "\"192.168.0.6\" \"add\" 86400")
+                            + HelpExampleCli("setban", "\"192.168.0.0/24\" \"add\"")
+                            + HelpExampleRpc("setban", "\"192.168.0.6\", \"add\" 86400")
+                            );
+
+    CSubNet subNet;
+    CNetAddr netAddr;
+    bool isSubnet = false;
+
+    if (params[0].get_str().find("/") != string::npos)
+        isSubnet = true;
+
+    if (!isSubnet)
+        netAddr = CNetAddr(params[0].get_str());
+    else
+        subNet = CSubNet(params[0].get_str());
+
+    if (! (isSubnet ? subNet.IsValid() : netAddr.IsValid()) )
+        throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Invalid IP/Subnet");
+
+    if (strCommand == "add")
+    {
+        if (isSubnet ? CNode::IsBanned(subNet) : CNode::IsBanned(netAddr))
+            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: IP/Subnet already banned");
+
+        int64_t banTime = 0; //use standard bantime if not specified
+        if (params.size() >= 3 && !params[2].is_null())
+            banTime = params[2].get_int64();
+
+        bool absolute = false;
+        if (params.size() == 4)
+            absolute = params[3].get_bool();
+
+        isSubnet ? CNode::Ban(subNet, BanReasonManuallyAdded, banTime, absolute) : CNode::Ban(netAddr, BanReasonManuallyAdded, banTime, absolute);
+
+        //disconnect possible nodes
+        while(CNode *bannedNode = (isSubnet ? FindNode(subNet) : FindNode(netAddr)))
+            bannedNode->CloseSocketDisconnect();
+    }
+    else if(strCommand == "remove")
+    {
+        if (!( isSubnet ? CNode::Unban(subNet) : CNode::Unban(netAddr) ))
+            throw JSONRPCError(RPC_MISC_ERROR, "Error: Unban failed");
+    }
+
+    DumpBanlist(); //store banlist to disk
+    uiInterface.BannedListChanged();
+
+    return Value::null;
+}
+
+Value listbanned(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                            "listbanned\n"
+                            "\nList all banned IPs/Subnets.\n"
+                            "\nExamples:\n"
+                            + HelpExampleCli("listbanned", "")
+                            + HelpExampleRpc("listbanned", "")
+                            );
+
+    banmap_t banMap;
+    CNode::GetBanned(banMap);
+
+    Array bannedAddresses;
+    for (banmap_t::iterator it = banMap.begin(); it != banMap.end(); it++)
+    {
+        CBanEntry banEntry = (*it).second;
+        Object rec;
+        rec.push_back(Pair("address", (*it).first.ToString()));
+        rec.push_back(Pair("banned_until", banEntry.nBanUntil));
+        rec.push_back(Pair("ban_created", banEntry.nCreateTime));
+        rec.push_back(Pair("ban_reason", banEntry.banReasonToString()));
+
+        bannedAddresses.push_back(rec);
+    }
+
+    return bannedAddresses;
+}
+
+Value clearbanned(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                            "clearbanned\n"
+                            "\nClear all banned IPs.\n"
+                            "\nExamples:\n"
+                            + HelpExampleCli("clearbanned", "")
+                            + HelpExampleRpc("clearbanned", "")
+                            );
+
+    CNode::ClearBanned();
+    DumpBanlist(); //store banlist to disk
+    uiInterface.BannedListChanged();
+
+    return Value::null;
 }
